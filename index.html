@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Clearing Decimals and Fractions Drill</title>
+<title>Clearing the Decimals and Fractions #1</title>
 <style>
 /* Layout: matches the One-Step Equations drill. Header bar, equation entry, the work centered and
    scaled to fit, the prompt bar along the bottom. One light look, like the drill. */
@@ -335,6 +335,9 @@ button,input{font-family:Tahoma,Verdana,Geneva,sans-serif;}
 .own-ans{display:flex;align-items:center;gap:16px;}
 .box.ownbox{width:5.5em;height:1.4em;font-size:.8em;border-color:var(--ui-b);background:var(--white);color:var(--ui);}
 .box.ownbox:focus{border-color:var(--ui);}
+.own .own-eq .pp.hide{display:none;}
+.own .own-eq .lcdw:empty{display:none;}
+.own .own-eq .cell{min-height:0;}
 .ownbtns{display:inline-flex;align-items:center;gap:12px;}
 .story .tri{display:block;width:min(300px,100%);margin:8px auto 0;font-family:inherit;}
 .stagelab{text-align:center;font-size:1.05rem;font-weight:700;letter-spacing:.04em;color:var(--ui);margin-bottom:18px;}
@@ -410,7 +413,7 @@ button,input{font-family:Tahoma,Verdana,Geneva,sans-serif;}
 <div class="app">
   <div class="wrap">
     <div class="drillhead">
-      <span class="dh-name">Clearing Decimals &amp; Fractions</span>
+      <span class="dh-name">Clearing the Decimals and Fractions #1</span>
       <form class="entry" id="entry" autocomplete="off">
         <label class="vh" for="eqIn">Equation</label>
         <input class="box eqbox" id="eqIn" type="text" spellcheck="false" placeholder="Type your own" value="">
@@ -625,7 +628,7 @@ function checkH(){
   if(p.kind==="div") return p.divSign ? (p.numNeg ? MINUS+"("+H(a)+")" : PH(a))+" ÷ "+PH(p.denNeg?neg(p.den):p.den) : dfracH(p.numNeg ? MINUS+"("+H(a)+")" : H(a), denShown());
   return p.post ? (p.s<0?MINUS:"")+dfracH(p.fp+"("+H(a)+")", p.fq) : coefH()+"("+H(a)+")";
 }
-function ansLine(){ return P.varLeft ? P.V+" = "+H(P.ans) : H(P.ans)+" = "+P.V; }
+function ansLine(){ const a=S.mixDone ? mixedH(P.ans) : H(P.ans); return P.varLeft ? P.V+" = "+a : a+" = "+P.V; }
 const mm=function(x){ return '<span class="math">'+x+'</span>'; };
 const bb=function(x){ return '<strong class="math blue">'+x+'</strong>'; };
 
@@ -952,11 +955,14 @@ function renderEq(){
     const b=$(id); if(!b) return;
     b.oninput=function(){
       S.v[id]=b.value;
+      if(id==="doA" && mulKey(b.value)){ startMul(); return; }
       if(id==="opA"||id==="opB"){ S.v.opA=S.v.opB=b.value; const x=$(id==="opA"?"opB":"opA"); if(x) x.value=b.value; }
       document.querySelectorAll("#fitbox .box.bad").forEach(function(x){ x.classList.remove("bad"); });
       judgeNum(true, id);
     };
     b.onkeydown=function(e){
+      /* backspace in an empty multiply box goes back to the "do to both sides" box */
+      if(e.key==="Backspace" && S.mulMode && S.step===3 && S.phase==="ask" && (id==="opA"||id==="opB") && !b.value){ e.preventDefault(); endMul(); return; }
       if(e.key!=="Enter") return; e.preventDefault();
       if(id==="e1" && !String(S.v.e2||"").trim()){ $("e2").focus(); return; }
       if(id==="rw1" && $("rw2") && !String(S.v.rw2||"").trim()){ $("rw2").focus(); return; }
@@ -1087,10 +1093,15 @@ function renderPrompt(){
       h+='<div class="hint1">'+t+'</div>';
     }
     else if(S.step===5 && S.sub==="lcd") h+='<div class="hint1">We need new fractions with the same denominator. What is the LCD?</div>';
+    else if(S.step===3 && S.mulMode){
+      h+='<div class="hint1">What do you multiply <strong>both sides</strong> by? '+(P.kind==="frac"?'Flip the fraction you want to get rid of. ':'')+'<span class="keys">Type it like 3, '+MINUS+'2 or 5/4.</span></div>';
+      h+='<div class="missline">'+(S.misses?'&#10007; <span class="mchint">'+(S.misses>1?'Type '+plainT(P.move).replace(/-/g,MINUS)+'.':'Check the number. Multiply by the reciprocal of the number with '+P.V+'.')+'</span>':'')+'</div>';
+      pb.innerHTML=h; return;
+    }
     else if(S.step===3) h+='<div class="hint1">'+moveHint()+'</div>';
     else if(S.step===2 && S.tip) h+='<div class="hint1 tip">'+S.tip+'</div>';
     else if(TYPEMOVE && S.step===1){
-      h+='<div class="hint1">What do you do to <strong>both sides</strong> to get '+P.V+' by itself? <span class="keys">Type it like '+MINUS+'50, +6, ×3 or /90.</span></div>';
+      h+='<div class="hint1">What do you do to <strong>both sides</strong> to get '+P.V+' by itself? <span class="keys">Type it like '+MINUS+'50, +6, ×3 or /90. To multiply, type <strong>m</strong>.</span></div>';
       if(S.misses) h+='<div class="missline">&#10007; <span class="mchint">'+(S.doNote||"")+(S.misses>1?" Type "+doWant()+".":"")+'</span></div>';
       pb.innerHTML=h; return;
     }
@@ -1832,17 +1843,22 @@ const FOLLOW={
        {q:"How many dimes are there? (x + 5)", t:"num", w:"8", tip:"There are 5 more dimes than nickels.", hint:"x + 5 = 3 + 5 = 8", why:"3 nickels, 9 quarters and 8 dimes."}],
   "8":{q:"How far would Ryan have to swim? (meters)", t:"num", w:"125", tip:"Ryan swims "+Fr("5","4")+" meters each second for t seconds.",
        hint:Fr("5","4")+"(100) = 125", why:"Ryan catches up after 100 seconds, after swimming 125 meters."},
-  "9":{q:"How many minutes is that?", t:"num", w:"72", tip:"1 hour = 60 minutes.", hint:"1.2 × 60 = 72", why:"1.2 hours is 72 minutes."}
+  "9":{q:"How many minutes is that?", t:"num", w:"72", tip:"1 hour = 60 minutes.", hint:"Take the hours and multiply by 60 (the number of minutes in one hour).", why:"1.2 hours is 72 minutes."}
 };
 /* the 11/6/25 quiz, in its own order */
-const QUIZ=["1","2","3","4","5","6","7","8","9","10","11","12","13","14","15","16","17","18","19"];
+const QUIZ=["1","2","3","4","5","6","7","8","9","10","11","12","13","14","15","16","17","18","19","20"];
+/* typed-in one-step problems, worked with the step-by-step solver */
+const QEQ={"20":"-6/7x = 2 1/4"};
+/* on your own: no steps on screen. Students solve on paper and type only the answer */
+const OWN_ANS={"2":"60","4":"12","7":"180","9":"1.2","11":"2","13":"13/14","15":"-3","17":"18","19":"-2"};
 const WORKSHEET=QUIZ.map(function(k,i){
-  return {l:String(i+1), src:k, g:true, own:false, grp: k==="1" ? "Decimals" : k==="6" ? "Fractions" : k==="18" ? "Both sides" : ""};
+  if(QEQ[k]) return {l:String(i+1), src:k, g:false, own:false, eq:QEQ[k], grp:""};
+  return {l:String(i+1), src:k, g:true, own:!!OWN_ANS[k], ownAns:OWN_ANS[k], grp:""};
 });
 function src(n){ return WORKSHEET[n-1].src; }
 function lab(n){ return WORKSHEET[n-1].l; }
 const fr=function(a,b){ return stackH(a,b); };
-const STORIES={};
+const STORIES={"20":"Solve for x. Write your answer as a mixed number."};
 function renderStory(){
   const it=Q && WORKSHEET[Q-1];
   const s=Q && (S.mode==="g" ? GUIDE[src(Q)].stem : (STORIES[src(Q)] || (it.g ? GUIDE[src(Q)].stem : "")));
@@ -1855,6 +1871,7 @@ function nextQ(n){ return n<WORKSHEET.length ? n+1 : 0; }
 const DONE=new Set();
 function startQ(n,focus,opts){
   Q=n; PROB++; ORIG=null; const it=WORKSHEET[n-1];
+  if(it.own){ $("eqIn").value=""; startOwn(n); return; }
   if(it.vs){ $("eqIn").value=it.eq; startVS(it.eq,{dec:!!it.dec}); return; }
   if(it.g){ $("eqIn").value=""; startG(it.src); return; }
   $("eqIn").value=it.eq; start(it.eq,focus!==false,{dec:!!it.dec});
@@ -1864,7 +1881,7 @@ function renderQ(){
   $("qlabel").textContent = Q ? "Question "+lab(Q) : "Your problem";
   renderStory();
   $("qstrip").innerHTML=''+WORKSHEET.map(function(it,i){
-    const n=i+1, title=it.g ? "work it out" : it.eq;
+    const n=i+1, title=it.own ? "on your own" : it.g ? "work it out" : it.eq;
     return (it.grp?'<span class="qlab qlab2">'+it.grp+'</span>':'')
       +'<button class="qn'+(n===Q?' on':DONE.has(n)?' done':'')+'" type="button" data-q="'+n+'" title="Question '+it.l+': '+title+'">'+it.l+'</button>';
   }).join("");
@@ -1910,6 +1927,21 @@ function pickTarget(id,el){
 }
 /* by now students type the move instead of clicking the term and choosing the operation */
 const TYPEMOVE=true;
+/* typing m (or × or *) on its own in the "do to both sides" box means multiply */
+function mulKey(raw){ return /^\s*[m×*]\s*$/i.test(String(raw||"")); }
+function startMul(){
+  if(!(S.step===1 && S.phase==="ask") || S.busy) return;
+  const p=P;
+  if(p.kind==="mul" && isNeg1(p.a)) return;             /* −x = 5: they can keep typing ×(−1) */
+  if(p.undo!=="mul"){ S.doNote=doFeedback({op:"mul", v:R(1)}); miss(); return; }
+  /* parentheses around both sides, with a box in front for what to multiply by */
+  S.mulMode=true; S.picked=true; S.step=3; S.phase="ask"; S.misses=0; S.v={};
+  render(true);
+}
+function endMul(){
+  S.mulMode=false; S.picked=false; S.step=1; S.phase="ask"; S.misses=0; S.v={};
+  render(true);
+}
 function parseDo(raw){
   const t=String(raw||"").trim().toLowerCase().replace(/[−–—]/g,"-").replace(/[×x*·]/g,"*").replace(/÷/g,"/")
     .replace(/^(add|plus)\s*/,"+").replace(/^(subtract|minus)\s*/,"-").replace(/^(multiply by|times)\s*/,"*").replace(/^(divide by)\s*/,"/").replace(/\s+/g,"").replace(/,/g,"");
@@ -2035,7 +2067,7 @@ function judgeNum(typing, from){
     S.doNote=doFeedback(r);
     return miss();
   }
-  const v=parseVal(raw);
+  const v=parseVal(S.step===3 ? String(raw).replace(/^\s*[×x*]\s*/i,"") : raw);
   if(!v) return say("Type a number.");
   if(S.step===3) return (p.kind==="add" ? same(absR(v),p.move) : same(v,p.move)) ? ok(advance) : fail();
   if(S.step===6) return same(v,p.C) ? ok(advance) : fail();
@@ -2718,6 +2750,11 @@ function isBothSides(raw){
 /* ================= on your own (16-29) ================= */
 let OWN=null;     /* {n, ans, V, done, missed} */
 function ownTarget(it){
+  if(it.ownAns){
+    const g=GUIDE[it.src], V=(g.then.match(/[a-zA-Z]/)||["x"])[0];
+    const show='<div class="eq k-pre">'+cell(hkMarkup(g.col.L))+cell("=","eqsign")+cell(hkMarkup(g.col.R))+'</div>';
+    return {ans:parseVal(it.ownAns), V:V, show:show, dec:!!g.dec || String(it.ownAns).indexOf(".")>=0};
+  }
   const eq = it.g ? GUIDE[it.src].then : it.eq;
   const t=parseTwo(eq), p2=parseEquation(t ? t.s2 : eq).p;
   return {ans:p2.ans, V:p2.V, show: it.g ? "" : withP(Object.assign({}, t.p1, {dec:!!it.dec||t.dec}), eqH), dec:!!it.dec||(t&&t.dec)};
@@ -2725,47 +2762,71 @@ function ownTarget(it){
 function startOwn(n){
   clearCheck(); $("prev").hidden=true; $("prev").innerHTML=""; clearPre(); S.idle=false; S.mode="own"; document.querySelector(".scroller").classList.remove("stack3"); $("eq").style.paddingLeft=""; P=null; TWO=null; $("eqErr").hidden=true; $("stagelab").hidden=true;
   const it=WORKSHEET[n-1], tg=ownTarget(it);
-  OWN={n:n, ans:tg.ans, V:tg.V, show:tg.show, dec:tg.dec, done:false, missed:false, val:""};
+  OWN={n:n, ans:tg.ans, V:tg.V, show:tg.show, dec:tg.dec, done:false, missed:false, val:"",
+       fu:FOLLOW[it.src] ? [].concat(FOLLOW[it.src]) : [], fi:0, fv:"", fmiss:false, fdone:[]};
+  const sl=$("stagelab"); sl.hidden=false; sl.textContent="On your own";
   renderOwn(); renderQ(); fit();
   setTimeout(function(){ const b=$("ownIn"); if(b) b.focus({preventScroll:true}); },40);
 }
 function ownAnsH(){ const keep=P; P={dec:OWN.dec}; const h=H(OWN.ans); P=keep; return h; }
+function ownAllDone(){ return OWN.done && OWN.fi>=OWN.fu.length; }
 function renderOwn(){
   const eq=$("eq"); eq.className="own";
+  const fuRows=OWN.fdone.map(function(r){ return '<div class="follow"><span>'+r.q+'</span><span class="gv">'+r.a+'</span></div>'; }).join("");
+  const fuCur=(OWN.done && OWN.fi<OWN.fu.length)
+    ? '<div class="follow"><span>'+OWN.fu[OWN.fi].q+'</span><input id="ownFu" class="box'+(OWN.fmiss?' bad':'')+'" value="'+String(OWN.fv).replace(/"/g,"&quot;")+'" autocomplete="off" spellcheck="false" aria-label="Your answer"></div>' : "";
   eq.innerHTML=(OWN.show?'<div class="own-eq">'+OWN.show+'</div>':'')
     +'<div class="own-ans"><span>'+OWN.V+' =</span>'
     +(OWN.done ? '<span class="green">'+ownAnsH()+' &#10003;</span>'
-               : '<input id="ownIn" class="box ownbox" value="'+String(OWN.val).replace(/"/g,"&quot;")+'" autocomplete="off" spellcheck="false" aria-label="Your answer">')
+               : '<input id="ownIn" class="box ownbox'+(OWN.missed?' bad':'')+'" value="'+String(OWN.val).replace(/"/g,"&quot;")+'" autocomplete="off" spellcheck="false" aria-label="Your answer">')
     +'</div>';
-  $("panel").innerHTML=""; $("notebar").textContent="";
+  $("panel").innerHTML=fuRows+fuCur; $("notebar").textContent="";
   const pb=$("promptbar"), n=nextQ(Q), nextLbl=(n?"Question "+lab(n):"Next")+" &rarr;";
-  if(OWN.done){
+  if(ownAllDone()){
     pb.innerHTML='<div class="row-between"><div class="prompt"><span class="green"><strong>'+OWN.V+' = '+ownAnsH()+' &#10003;</strong> Nice work on your own.</span></div>'
       +'<button class="next" id="ownNext" type="button">'+nextLbl+'<kbd class="nk">N</kbd></button></div>';
     $("ownNext").onclick=function(){ if(n) startQ(n); else randomStart(); };
+  } else if(OWN.done){
+    pb.innerHTML='<div class="row-between"><div class="prompt"><span>Answer the question, then press Enter.</span></div>'
+      +'<span class="ownbtns"><button class="next" id="ownCheck" type="button">Check</button></span></div>'
+      +'<div class="missline">'+(OWN.fmiss?'&#10007; <span class="mchint">'+(OWN.fu[OWN.fi].hint||'Not quite. Check your work on paper and try again.')+'</span>':'')+'</div>';
+    $("ownCheck").onclick=checkOwnFu;
+    const f=$("ownFu");
+    f.oninput=function(){ OWN.fv=f.value; f.classList.remove("bad"); };
+    f.onkeydown=function(e){ if(e.key==="Enter"){ e.preventDefault(); e.stopPropagation(); checkOwnFu(); } };
   } else {
     pb.innerHTML='<div class="row-between"><div class="prompt"><span>Solve it on your paper, then type your answer and press Enter.</span></div>'
-      +'<span class="ownbtns"><button class="turnin-link" id="ownHelp" type="button">Show me the steps</button>'
-      +'<button class="next" id="ownCheck" type="button">Check</button></span></div>'
-      +'<div class="missline">'+(OWN.missed?'&#10007; <span class="mchint">Not quite. Check your work, or press <strong>Show me the steps</strong>.</span>':'')+'</div>';
+      +'<span class="ownbtns"><button class="next" id="ownCheck" type="button">Check</button></span></div>'
+      +'<div class="missline">'+(OWN.missed?'&#10007; <span class="mchint">Not quite. Check your work on paper and try again.</span>':'')+'</div>';
     $("ownCheck").onclick=checkOwn;
-    $("ownHelp").onclick=function(){ startQ(OWN.n,true,{help:true}); };
     const b=$("ownIn");
     b.oninput=function(){ OWN.val=b.value; b.classList.remove("bad"); };
     b.onkeydown=function(e){ if(e.key==="Enter"){ e.preventDefault(); e.stopPropagation(); checkOwn(); } };
   }
 }
+function ownFocus(){ setTimeout(function(){ const b=$("ownFu")||$("ownNext")||$("ownIn"); if(b) b.focus({preventScroll:true}); },40); }
 function checkOwn(){
   const raw=$("ownIn") ? $("ownIn").value : "";
   if(!raw.trim()){ $("ownIn").focus(); return; }
   const v=parseVal(raw);
   if(v && same(v,OWN.ans)){
-    OWN.done=true; DONE.add(Q); renderOwn(); renderQ(); fit();
-    setTimeout(function(){ const b=$("ownNext"); if(b) b.focus({preventScroll:true}); },40);
+    OWN.done=true; if(ownAllDone()) DONE.add(Q); renderOwn(); renderQ(); fit(); ownFocus();
     return;
   }
   OWN.missed=true; OWN.val=raw; renderOwn(); fit();
-  const b=$("ownIn"); b.classList.add("bad"); b.focus({preventScroll:true});
+  $("ownIn").focus({preventScroll:true});
+}
+function checkOwnFu(){
+  const f=$("ownFu"), raw=f ? f.value : "", fu=OWN.fu[OWN.fi];
+  if(!raw.trim()){ f.focus(); return; }
+  if(boxGood({t:fu.t,w:fu.w},raw)){
+    OWN.fdone.push({q:fu.q, a:boxShow({t:fu.t},raw)}); OWN.fi++; OWN.fv=""; OWN.fmiss=false;
+    if(ownAllDone()) DONE.add(Q);
+    renderOwn(); renderQ(); fit(); ownFocus();
+    return;
+  }
+  OWN.fmiss=true; OWN.fv=raw; renderOwn(); fit();
+  $("ownFu").focus({preventScroll:true});
 }
 
 /* ================= a question after solving (24, 25, 30, 31) ================= */
@@ -2904,7 +2965,7 @@ function alignPrev(){
 function startStage2(){
   const r=parseEquation(TWO.s2);
   P=r.p; P.two=2; if(TWO.dec) P.dec=true;
-  Object.assign(S,{step:1, phase:"ask", misses:0, picked:false, busy:false, sub:"", raw:null, L:0, v:{}, mixDone:false, rw:false, fuDone:false, fuI:0, fuRows:""});
+  Object.assign(S,{step:1, phase:"ask", misses:0, picked:false, busy:false, sub:"", raw:null, L:0, v:{}, mixDone:false, rw:false, fuDone:false, fuI:0, fuRows:"", mulMode:false});
   enter(); render(true);
 }
 /* the check, in the problem as it was first written */
@@ -2950,7 +3011,7 @@ function start(raw,focus,opts){
   TWO=two||null;
   if(TWO && opts && opts.dec){ TWO.dec=true; }
   if(TWO && TWO.dec) P.dec=true;
-  Object.assign(S,{step:0, phase:"write", misses:0, picked:false, busy:false, sub:"", raw:null, L:0, v:{}, mixDone:false, rw:false, fuDone:false, fuI:0, fuRows:""});
+  Object.assign(S,{step:0, phase:"write", misses:0, picked:false, busy:false, sub:"", raw:null, L:0, v:{}, mixDone:false, rw:false, fuDone:false, fuI:0, fuRows:"", mulMode:false});
   PREB = opts && opts.pre ? opts.pre : null;
   CHK = opts && opts.check ? opts.check : null;
   if(opts && opts.skipCopy){ S.step=1; enter(); }
